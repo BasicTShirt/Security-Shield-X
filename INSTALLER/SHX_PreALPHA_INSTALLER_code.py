@@ -6,16 +6,16 @@ import tempfile
 import webbrowser
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QLabel, QDialog, QHBoxLayout,
-                             QProgressBar, QMessageBox)
+                             QProgressBar, QMessageBox, QFrame)
 from PyQt6.QtCore import Qt, QPoint, QSize, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QColor
 
 # ============================== КОНФИГУРАЦИЯ ССЫЛОК ==============================
 # Ссылка на пользовательское соглашение
-TERMS_OF_SERVICE_URL = "https://github.com/yourusername/security-shield/blob/main/TERMS.md"
+TERMS_OF_SERVICE_URL = "https://github.com/BasicTShirt/Security-Shield-X/blob/main/TERMS.txt"
 
 # Ссылка на архив с файлами приложения
-APP_DOWNLOAD_URL = "https://github.com/yourusername/security-shield/archive/refs/heads/main.zip"
+APP_DOWNLOAD_URL = "https://github.com/BasicTShirt/Security-Shield-X/archive/refs/heads/main.zip"
 # ================================================================================
 
 MAIN_WINDOW_WIDTH = 800
@@ -72,22 +72,12 @@ class DownloadDialog(QDialog):
         super().__init__(parent)
         self.parent = parent
         self.download_thread = None
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(500, 300)
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowCloseButtonHint)
+        self.setFixedSize(500, 350)
         self.initUI()
 
     def initUI(self):
-        main_widget = QWidget()
-        main_widget.setStyleSheet("""
-            QWidget {
-                background-color: rgba(30, 35, 45, 0.98);
-                border-radius: 20px;
-                border: 2px solid rgba(80, 85, 100, 0.8);
-            }
-        """)
-
-        layout = QVBoxLayout(main_widget)
+        layout = QVBoxLayout()
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
 
@@ -102,6 +92,21 @@ class DownloadDialog(QDialog):
             }
         """)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Рамка для окна загрузки
+        download_frame = QFrame()
+        download_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        download_frame.setStyleSheet("""
+            QFrame {
+                background-color: rgba(40, 45, 55, 0.95);
+                border: 2px solid rgba(80, 85, 100, 0.8);
+                border-radius: 15px;
+                padding: 20px;
+            }
+        """)
+
+        frame_layout = QVBoxLayout(download_frame)
+        frame_layout.setSpacing(15)
 
         self.status_label = QLabel("Готов к загрузке")
         self.status_label.setStyleSheet("""
@@ -119,8 +124,8 @@ class DownloadDialog(QDialog):
             QProgressBar {
                 border: 2px solid rgba(80, 90, 110, 0.8);
                 border-radius: 8px;
-                height: 25px;
-                background-color: rgba(40, 45, 55, 0.9);
+                height: 30px;
+                background-color: rgba(30, 35, 45, 0.9);
                 color: #e0e0e0;
                 font-family: "Segoe UI";
                 font-size: 14px;
@@ -132,17 +137,20 @@ class DownloadDialog(QDialog):
             }
         """)
 
+        frame_layout.addWidget(self.status_label)
+        frame_layout.addWidget(self.progress_bar)
+
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(20)
 
         self.download_btn = QPushButton("Начать загрузку")
-        self.download_btn.setFixedSize(180, 40)
+        self.download_btn.setFixedSize(180, 45)
         self.download_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(155, 89, 182, 0.9);
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius: 10px;
                 font-size: 14px;
                 font-weight: bold;
                 font-family: "Segoe UI";
@@ -158,13 +166,13 @@ class DownloadDialog(QDialog):
         self.download_btn.clicked.connect(self.start_download)
 
         self.cancel_btn = QPushButton("Отмена")
-        self.cancel_btn.setFixedSize(180, 40)
+        self.cancel_btn.setFixedSize(180, 45)
         self.cancel_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(60, 70, 90, 0.9);
                 color: #e0e0e0;
                 border: none;
-                border-radius: 8px;
+                border-radius: 10px;
                 font-size: 14px;
                 font-weight: bold;
                 font-family: "Segoe UI";
@@ -179,13 +187,10 @@ class DownloadDialog(QDialog):
         buttons_layout.addWidget(self.cancel_btn)
 
         layout.addWidget(title)
-        layout.addWidget(self.status_label)
-        layout.addWidget(self.progress_bar)
+        layout.addWidget(download_frame)
         layout.addLayout(buttons_layout)
 
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(main_widget)
+        self.setLayout(layout)
 
     def start_download(self):
         self.download_btn.setEnabled(False)
@@ -204,13 +209,25 @@ class DownloadDialog(QDialog):
             QMessageBox.information(self, "Успех",
                                     f"Приложение успешно скачано!\n\n"
                                     f"Файлы сохранены в:\n{message}\n\n"
-                                    f"Запустите main.py для запуска приложения.")
+                                    f"")
             self.accept()
         else:
             QMessageBox.warning(self, "Ошибка",
                                 f"Ошибка загрузки:\n{message}")
             self.download_btn.setEnabled(True)
             self.download_btn.setText("Повторить")
+
+    def closeEvent(self, event):
+        if hasattr(self, 'download_thread') and self.download_thread and self.download_thread.isRunning():
+            reply = QMessageBox.question(self, "Подтверждение",
+                                         "Загрузка еще выполняется. Вы уверены, что хотите отменить?",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                self.reject()
+            else:
+                event.ignore()
+        else:
+            event.accept()
 
 
 class HeaderPanel(QWidget):
