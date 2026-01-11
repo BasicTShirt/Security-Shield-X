@@ -12,7 +12,7 @@ from PyQt6.QtGui import QPalette, QColor
 
 TERMS_OF_SERVICE_URL = "https://github.com/BasicTShirt/Security-Shield-X/blob/main/TERMS.txt"
 
-APP_DOWNLOAD_URL = "https://github.com/BasicTShirt/Security-Shield-X/archive/refs/heads/main.zip"
+APP_DOWNLOAD_URL = "https://github.com/BasicTShirt/SHX_files"
 
 MAIN_WINDOW_WIDTH = 800
 MAIN_WINDOW_HEIGHT = 600
