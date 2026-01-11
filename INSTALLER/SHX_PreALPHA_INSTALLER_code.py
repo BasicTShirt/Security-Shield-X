@@ -10,13 +10,9 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import Qt, QPoint, QSize, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QColor
 
-# ============================== КОНФИГУРАЦИЯ ССЫЛОК ==============================
-# Ссылка на пользовательское соглашение
 TERMS_OF_SERVICE_URL = "https://github.com/BasicTShirt/Security-Shield-X/blob/main/TERMS.txt"
 
-# Ссылка на архив с файлами приложения
 APP_DOWNLOAD_URL = "https://github.com/BasicTShirt/Security-Shield-X/archive/refs/heads/main.zip"
-# ================================================================================
 
 MAIN_WINDOW_WIDTH = 800
 MAIN_WINDOW_HEIGHT = 600
@@ -326,7 +322,6 @@ class MainWindow(QMainWindow):
         content_layout.setContentsMargins(40, 60, 40, 40)
         content_layout.setSpacing(30)
 
-        # Заголовок
         title_label = QLabel("Security Shield")
         title_label.setStyleSheet("""
             QLabel {
@@ -339,7 +334,6 @@ class MainWindow(QMainWindow):
         """)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Описание
         desc_label = QLabel("Загрузчик и установщик приложения")
         desc_label.setStyleSheet("""
             QLabel {
@@ -351,7 +345,6 @@ class MainWindow(QMainWindow):
         """)
         desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Основная кнопка загрузки
         download_btn = QPushButton("Скачать приложение")
         download_btn.setFixedSize(300, 60)
         download_btn.setStyleSheet("""
@@ -370,7 +363,6 @@ class MainWindow(QMainWindow):
         """)
         download_btn.clicked.connect(self.show_download_dialog)
 
-        # Кнопка пользовательского соглашения
         terms_btn = QPushButton("Пользовательское соглашение")
         terms_btn.setFixedSize(300, 50)
         terms_btn.setStyleSheet("""
@@ -389,7 +381,6 @@ class MainWindow(QMainWindow):
         """)
         terms_btn.clicked.connect(lambda: webbrowser.open(TERMS_OF_SERVICE_URL))
 
-        # Кнопка выхода
         quit_btn = QPushButton("Выход")
         quit_btn.setFixedSize(200, 45)
         quit_btn.setStyleSheet("""
