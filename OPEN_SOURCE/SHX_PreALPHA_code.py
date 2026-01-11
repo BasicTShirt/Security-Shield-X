@@ -10,9 +10,9 @@ from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QLabel, QDialog, QHBoxLayout,
                              QCheckBox, QStackedWidget, QListWidget,
-                             QListWidgetItem)
+                             QListWidgetItem, QLineEdit, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer, QSettings, QPoint, QSize
-from PyQt6.QtGui import QPixmap, QIcon, QColor
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QFont
 
 APP_ICON_PATH = "rounded-in-photoretrica.png"
 CHECKMARK_PATH = "190411.png"
@@ -34,6 +34,257 @@ ICON_CIRCLE_SIZE = 200
 ICON_CIRCLE_DIAMETER = (ICON_CIRCLE_SIZE, ICON_CIRCLE_SIZE)
 NAV_PANEL_WIDTH = 250
 HEADER_PANEL_HEIGHT = 50
+
+class PasswordManager:
+    def __init__(self):
+        self.settings = QSettings("SecurityShield", "Password")
+        self.password_file = "security_password.dat"
+    
+    def is_password_set(self):
+        return self.settings.contains("password_hash") or os.path.exists(self.password_file)
+    
+    def set_password(self, password):
+        if len(password) != 4 or not password.isdigit():
+            return False
+        
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        self.settings.setValue("password_hash", password_hash)
+        
+        with open(self.password_file, "w", encoding="utf-8") as f:
+            f.write(password_hash)
+        
+        return True
+    
+    def verify_password(self, password):
+        if len(password) != 4 or not password.isdigit():
+            return False
+        
+        stored_hash = self.settings.value("password_hash", "")
+        if not stored_hash and os.path.exists(self.password_file):
+            with open(self.password_file, "r", encoding="utf-8") as f:
+                stored_hash = f.read().strip()
+        
+        if not stored_hash:
+            return False
+        
+        input_hash = hashlib.sha256(password.encode()).hexdigest()
+        return input_hash == stored_hash
+
+class PasswordDialog(QDialog):
+    def __init__(self, title, message, parent=None, is_setup=False):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setFixedSize(400, 300 if is_setup else 250)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.is_setup = is_setup
+        self.initUI(message)
+    
+    def initUI(self, message):
+        main_widget = QWidget()
+        main_widget.setStyleSheet("""
+            QWidget {
+                background-color: rgba(30, 35, 45, 0.98);
+                border-radius: 20px;
+                border: 2px solid rgba(155, 89, 182, 0.8);
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            }
+        """)
+        
+        layout = QVBoxLayout(main_widget)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+        
+        title_label = QLabel("🔐 УСТАНОВКА ПАРОЛЯ" if self.is_setup else "🔐 ВВОД ПАРОЛЯ")
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #9b59b6;
+                font-size: 20px;
+                font-weight: bold;
+                font-family: "Segoe UI";
+                background: transparent;
+            }
+        """)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        message_label = QLabel(message)
+        message_label.setStyleSheet("""
+            QLabel {
+                color: #e0e0e0;
+                font-size: 14px;
+                font-family: "Segoe UI";
+                background: transparent;
+            }
+        """)
+        message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        message_label.setWordWrap(True)
+        
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_input.setMaxLength(4)
+        self.password_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.password_input.setFixedHeight(50)
+        self.password_input.setStyleSheet("""
+            QLineEdit {
+                background-color: rgba(40, 45, 55, 0.95);
+                border: 2px solid rgba(155, 89, 182, 0.6);
+                border-radius: 10px;
+                color: #e0e0e0;
+                font-size: 24px;
+                font-family: "Segoe UI";
+                font-weight: bold;
+                letter-spacing: 8px;
+                padding: 10px;
+                selection-background-color: rgba(155, 89, 182, 0.5);
+            }
+            QLineEdit:focus {
+                border: 2px solid rgba(155, 89, 182, 0.9);
+                background-color: rgba(45, 50, 60, 0.95);
+            }
+        """)
+        
+        if self.is_setup:
+            confirm_label = QLabel("Подтверждение пароля:")
+            confirm_label.setStyleSheet("""
+                QLabel {
+                    color: #e0e0e0;
+                    font-size: 14px;
+                    font-family: "Segoe UI";
+                    background: transparent;
+                }
+            """)
+            
+            self.confirm_input = QLineEdit()
+            self.confirm_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self.confirm_input.setMaxLength(4)
+            self.confirm_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.confirm_input.setFixedHeight(50)
+            self.confirm_input.setStyleSheet("""
+                QLineEdit {
+                    background-color: rgba(40, 45, 55, 0.95);
+                    border: 2px solid rgba(155, 89, 182, 0.6);
+                    border-radius: 10px;
+                    color: #e0e0e0;
+                    font-size: 24px;
+                    font-family: "Segoe UI";
+                    font-weight: bold;
+                    letter-spacing: 8px;
+                    padding: 10px;
+                    selection-background-color: rgba(155, 89, 182, 0.5);
+                }
+                QLineEdit:focus {
+                    border: 2px solid rgba(155, 89, 182, 0.9);
+                    background-color: rgba(45, 50, 60, 0.95);
+                }
+            """)
+        
+        hint_label = QLabel("Пароль должен состоять из 4 цифр")
+        hint_label.setStyleSheet("""
+            QLabel {
+                color: #a0a0b0;
+                font-size: 12px;
+                font-family: "Segoe UI";
+                background: transparent;
+            }
+        """)
+        hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(15)
+        
+        layout.addWidget(title_label)
+        layout.addWidget(message_label)
+        layout.addWidget(self.password_input)
+        
+        if self.is_setup:
+            layout.addWidget(confirm_label)
+            layout.addWidget(self.confirm_input)
+        
+        layout.addWidget(hint_label)
+        
+        if self.is_setup:
+            ok_button = QPushButton("Установить пароль")
+            ok_button.setFixedHeight(45)
+            ok_button.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(155, 89, 182, 0.9);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    font-family: "Segoe UI";
+                }
+                QPushButton:hover {
+                    background-color: rgba(175, 109, 202, 0.95);
+                }
+                QPushButton:pressed {
+                    background-color: rgba(135, 69, 162, 0.95);
+                }
+            """)
+            ok_button.clicked.connect(self.accept)
+            
+            buttons_layout.addWidget(ok_button)
+        else:
+            ok_button = QPushButton("Подтвердить")
+            ok_button.setFixedHeight(45)
+            ok_button.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(155, 89, 182, 0.9);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    font-family: "Segoe UI";
+                }
+                QPushButton:hover {
+                    background-color: rgba(175, 109, 202, 0.95);
+                }
+                QPushButton:pressed {
+                    background-color: rgba(135, 69, 162, 0.95);
+                }
+            """)
+            ok_button.clicked.connect(self.accept)
+            
+            cancel_button = QPushButton("Отмена")
+            cancel_button.setFixedHeight(45)
+            cancel_button.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(60, 70, 85, 0.9);
+                    color: #d0d0e0;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    font-family: "Segoe UI";
+                }
+                QPushButton:hover {
+                    background-color: rgba(80, 90, 105, 0.95);
+                    color: #ffffff;
+                }
+                QPushButton:pressed {
+                    background-color: rgba(40, 50, 65, 0.95);
+                }
+            """)
+            cancel_button.clicked.connect(self.reject)
+            
+            buttons_layout.addWidget(ok_button)
+            buttons_layout.addWidget(cancel_button)
+        
+        layout.addLayout(buttons_layout)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(main_widget)
+    
+    def get_password(self):
+        return self.password_input.text()
+    
+    def get_confirm_password(self):
+        if self.is_setup:
+            return self.confirm_input.text()
+        return ""
 
 class SystemScanner:
     def __init__(self):
@@ -447,7 +698,7 @@ class ThreatDialog(QDialog):
                 background-color: rgba(40, 50, 70, 0.95);
             }
         """)
-        ignore_btn.clicked.connect(self.ignore_threat)
+        ignore_btn.clicked.connect(self.request_password_for_exclusion)
 
         buttons_layout.addWidget(quarantine_btn)
         buttons_layout.addWidget(ignore_btn)
@@ -459,6 +710,22 @@ class ThreatDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(main_widget)
+
+    def request_password_for_exclusion(self):
+        password_dialog = PasswordDialog(
+            "Подтверждение пароля",
+            "Для добавления в исключения введите пароль:",
+            self.parent
+        )
+        
+        if password_dialog.exec() == QDialog.DialogCode.Accepted:
+            password = password_dialog.get_password()
+            if self.parent.password_manager.verify_password(password):
+                self.ignore_threat()
+            else:
+                QMessageBox.warning(self, "Ошибка", "Неверный пароль!")
+        else:
+            self.reject()
 
     def quarantine_threat(self):
         try:
@@ -675,7 +942,7 @@ class ExclusionsPage(QWidget):
                 color: rgba(150, 150, 150, 0.8);
             }
         """)
-        delete_btn.clicked.connect(self.delete_selected)
+        delete_btn.clicked.connect(self.request_password_for_deletion)
 
         self.stats_label = QLabel("Исключений: 0")
         self.stats_label.setStyleSheet("""
@@ -699,6 +966,20 @@ class ExclusionsPage(QWidget):
 
         layout.addLayout(bottom_layout)
         self.setLayout(layout)
+
+    def request_password_for_deletion(self):
+        password_dialog = PasswordDialog(
+            "Подтверждение пароля",
+            "Для удаления исключений введите пароль:",
+            self.parent
+        )
+        
+        if password_dialog.exec() == QDialog.DialogCode.Accepted:
+            password = password_dialog.get_password()
+            if self.parent.password_manager.verify_password(password):
+                self.delete_selected()
+            else:
+                QMessageBox.warning(self, "Ошибка", "Неверный пароль!")
 
     def load_exclusions(self):
         try:
@@ -734,7 +1015,7 @@ class ExclusionsPage(QWidget):
                 for exclusion in self.exclusions_set:
                     f.write(f"{exclusion}\n")
         except:
-            pass
+        pass
 
     def delete_selected(self):
         selected_items = self.exclusions_list.selectedItems()
@@ -1002,6 +1283,10 @@ class ContentArea(QWidget):
 class SimpleSecurityApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.password_manager = PasswordManager()
+        self.require_password_setup()
+        
+        # Инициализация остальных компонентов
         self.is_protected = False
         self.threat_check_timer = QTimer()
         self.threat_check_timer.timeout.connect(self.check_for_threats)
@@ -1012,8 +1297,49 @@ class SimpleSecurityApp(QMainWindow):
         self.load_images()
         self._drag_position = QPoint()
         self.detected_threats_cache = set()
+        
+        # Создаем интерфейс
         self.initUI()
         self.perform_startup_scan()
+
+    def require_password_setup(self):
+        """Проверка и установка пароля при необходимости"""
+        if not self.password_manager.is_password_set():
+            self.setup_password()
+    
+    def setup_password(self):
+        """Диалог установки пароля (вызывается ДО показа основного окна)"""
+        password_dialog = PasswordDialog(
+            "Установка пароля",
+            "Установите пароль из 4 цифр для добавления в исключения:",
+            None,  # parent=None, так как основное окно еще не создано
+            is_setup=True
+        )
+        
+        while True:
+            result = password_dialog.exec()
+            if result == QDialog.DialogCode.Accepted:
+                password = password_dialog.get_password()
+                confirm_password = password_dialog.get_confirm_password()
+                
+                # Валидация
+                if len(password) != 4 or not password.isdigit():
+                    QMessageBox.warning(None, "Ошибка", "Пароль должен состоять из 4 цифр!")
+                    continue
+                
+                if password != confirm_password:
+                    QMessageBox.warning(None, "Ошибка", "Пароли не совпадают!")
+                    continue
+                
+                # Установка пароля
+                if self.password_manager.set_password(password):
+                    QMessageBox.information(None, "Успех", "Пароль успешно установлен!")
+                    break
+                else:
+                    QMessageBox.warning(None, "Ошибка", "Не удалось установить пароль!")
+            else:
+                # Если пользователь отменил установку пароля
+                sys.exit(0)
 
     def load_images(self):
         image_size = 100
@@ -1036,6 +1362,7 @@ class SimpleSecurityApp(QMainWindow):
             pass
 
     def initUI(self):
+        """Инициализация графического интерфейса"""
         self.setWindowTitle('Security Shield')
         self.setFixedSize(*MAIN_WINDOW_SIZE)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -1093,6 +1420,7 @@ class SimpleSecurityApp(QMainWindow):
         self.switch_page(0)
 
     def perform_startup_scan(self):
+        """Выполнение начального сканирования"""
         processes = self.scanner.scan_running_processes()
         startup_items = self.scanner.scan_startup_items()
         
