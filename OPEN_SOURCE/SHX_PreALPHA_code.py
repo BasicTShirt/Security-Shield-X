@@ -2,19 +2,17 @@ import sys
 import os
 import subprocess
 import psutil
-import socket
 import json
 import winreg
 import hashlib
 import math
-from collections import defaultdict
 from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QLabel, QDialog, QHBoxLayout,
-                             QCheckBox, QFrame, QStackedWidget, QListWidget,
-                             QListWidgetItem, QAbstractItemView, QSplitter)
+                             QCheckBox, QStackedWidget, QListWidget,
+                             QListWidgetItem)
 from PyQt6.QtCore import Qt, QTimer, QSettings, QPoint, QSize
-from PyQt6.QtGui import QPixmap, QFont, QIcon, QColor
+from PyQt6.QtGui import QPixmap, QIcon, QColor
 
 APP_ICON_PATH = "rounded-in-photoretrica.png"
 CHECKMARK_PATH = "190411.png"
@@ -27,9 +25,6 @@ MAIN_WINDOW_SIZE = (MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
 DIALOG_WIDTH = 500
 DIALOG_HEIGHT = 250
 DIALOG_SIZE = (DIALOG_WIDTH, DIALOG_HEIGHT)
-BUTTON_WIDTH = 220
-BUTTON_HEIGHT = 60
-BUTTON_SIZE = (BUTTON_WIDTH, BUTTON_HEIGHT)
 ACTION_BUTTON_WIDTH = 180
 ACTION_BUTTON_HEIGHT = 40
 ACTION_BUTTON_SIZE = (ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT)
@@ -39,14 +34,12 @@ ICON_CIRCLE_SIZE = 200
 ICON_CIRCLE_DIAMETER = (ICON_CIRCLE_SIZE, ICON_CIRCLE_SIZE)
 NAV_PANEL_WIDTH = 250
 HEADER_PANEL_HEIGHT = 50
-CONTENT_MARGINS = 40
-
 
 class SystemScanner:
     def __init__(self):
         self.suspicious_strings = [
             'CreateRemoteThread', 'VirtualAllocEx', 'WriteProcessMemory',
-            'reg add', 'powershell', 'cmd.exe /c',
+            'reg add', 'powershell', 'cmd.exe /c', 
             'rundll32', 'mshta', 'wscript', 'cscript',
             'certutil', 'bitsadmin', 'wmic', 'schtasks',
             'netsh', 'net user', 'net localgroup', 'taskkill',
@@ -54,24 +47,24 @@ class SystemScanner:
             'attrib', 'takeown', 'icacls', 'cacls',
             'netstat', 'ipconfig', 'arp', 'route'
         ]
-
+        
         self.system_dirs = [
             'C:\\Windows\\', 'C:\\Program Files\\',
             'C:\\Program Files (x86)\\', 'C:\\ProgramData\\'
         ]
-
+    
     def calculate_entropy(self, data):
         if not data:
             return 0.0
-
+        
         entropy = 0.0
         for x in range(256):
             p_x = data.count(x) / len(data)
             if p_x > 0:
                 entropy += -p_x * math.log2(p_x)
-
+        
         return entropy
-
+    
     def calculate_file_hash(self, filepath):
         try:
             hash_func = hashlib.sha256()
@@ -81,38 +74,38 @@ class SystemScanner:
             return hash_func.hexdigest()
         except:
             return ''
-
+    
     def scan_running_processes(self):
         suspicious_processes = []
-
-        for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline', 'create_time', 'username']):
+        
+        for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline', 'create_time']):
             try:
                 process_info = proc.info
-
+                
                 if not process_info['exe'] or any(sys_dir in process_info['exe'] for sys_dir in self.system_dirs):
                     continue
-
+                
                 score = 0
                 flags = []
-
+                
                 exe_path = process_info['exe'] or ''
                 if any(x in exe_path.lower() for x in ['temp', 'tmp', 'appdata', 'local\\temp']):
                     score += 20
                     flags.append('Необычное расположение')
-
+                
                 proc_name = process_info['name'].lower()
                 suspicious_names = ['svchost', 'dllhost', 'rundll32', 'wscript', 'mshta', 'cmd', 'powershell']
                 if any(name in proc_name for name in suspicious_names) and 'windows' not in exe_path.lower():
                     score += 15
                     flags.append('Маскировка под системный процесс')
-
+                
                 if process_info['cmdline']:
                     cmdline = ' '.join(process_info['cmdline']).lower()
                     for suspicious in self.suspicious_strings:
                         if suspicious.lower() in cmdline:
                             score += 10
                             flags.append(f'Подозрительная команда: {suspicious}')
-
+                
                 if process_info['exe'] and os.path.exists(process_info['exe']):
                     try:
                         with open(process_info['exe'], 'rb') as f:
@@ -123,7 +116,7 @@ class SystemScanner:
                                 flags.append(f'Высокая энтропия: {entropy:.2f}')
                     except:
                         pass
-
+                
                 if score > 0:
                     process_data = {
                         'pid': process_info['pid'],
@@ -133,30 +126,26 @@ class SystemScanner:
                         'score': score,
                         'flags': flags,
                         'status': 'MALICIOUS' if score >= 50 else 'SUSPICIOUS',
-                        'username': process_info.get('username', 'N/A'),
-                        'create_time': datetime.fromtimestamp(process_info['create_time']).isoformat() if process_info[
-                            'create_time'] else 'N/A'
+                        'create_time': datetime.fromtimestamp(process_info['create_time']).isoformat() if process_info['create_time'] else 'N/A'
                     }
                     suspicious_processes.append(process_data)
-
+                    
             except:
                 continue
-
+        
         return suspicious_processes
-
+    
     def scan_startup_items(self):
         startup_items = []
-        startup_paths = []
-
+        
         if os.name == 'nt':
             startup_paths = [
                 os.path.join(os.environ.get('APPDATA', ''), 'Microsoft\\Windows\\Start Menu\\Programs\\Startup'),
                 os.path.join(os.environ.get('PROGRAMDATA', ''), 'Microsoft\\Windows\\Start Menu\\Programs\\Startup'),
                 r'C:\Users\All Users\Microsoft\Windows\Start Menu\Programs\Startup',
-                os.path.join(os.environ.get('USERPROFILE', ''),
-                             'AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup')
+                os.path.join(os.environ.get('USERPROFILE', ''), 'AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup')
             ]
-
+        
         for startup_path in startup_paths:
             if os.path.exists(startup_path):
                 for root, dirs, files in os.walk(startup_path):
@@ -166,23 +155,23 @@ class SystemScanner:
                             item = self.analyze_file(filepath)
                             if item['score'] > 0:
                                 startup_items.append(item)
-
+        
         return startup_items
-
+    
     def analyze_file(self, filepath):
         score = 0
         flags = []
-
+        
         try:
             if os.path.getsize(filepath) > 0:
                 with open(filepath, 'rb') as f:
                     data = f.read(4096)
                     entropy = self.calculate_entropy(data)
-
+                    
                     if entropy > 7.0:
                         score += 20
                         flags.append(f'Высокая энтропия: {entropy:.2f}')
-
+                    
                     try:
                         text = data.decode('utf-8', errors='ignore')
                         for suspicious in self.suspicious_strings:
@@ -191,28 +180,27 @@ class SystemScanner:
                                 flags.append(f'Содержит: {suspicious}')
                     except:
                         pass
-
+            
             ext = os.path.splitext(filepath)[1].lower()
             if ext in ['.vbs', '.ps1', '.bat']:
                 score += 10
                 flags.append('Скрипт в автозагрузке')
-
+            
             filename = os.path.basename(filepath).lower()
             suspicious_names = ['crack', 'keygen', 'patch', 'loader', 'injector', 'hack', 'cheat']
             if any(name in filename for name in suspicious_names):
                 score += 25
                 flags.append('Подозрительное имя файла')
-
+            
         except:
             pass
-
+        
         return {
             'path': filepath,
             'score': score,
             'flags': flags,
             'status': 'MALICIOUS' if score >= 50 else 'SUSPICIOUS' if score > 0 else 'CLEAN'
         }
-
 
 class SettingsManager:
     def __init__(self):
@@ -227,7 +215,7 @@ class SettingsManager:
 
     def update_windows_autostart(self, enabled):
         app_path = sys.executable
-        app_name = "Security Shield X"
+        app_name = "Security Shield"
 
         try:
             key = winreg.OpenKey(
@@ -245,10 +233,8 @@ class SettingsManager:
                     pass
 
             winreg.CloseKey(key)
-
         except:
             pass
-
 
 class HeaderPanel(QWidget):
     def __init__(self, parent=None):
@@ -272,7 +258,7 @@ class HeaderPanel(QWidget):
         layout.setContentsMargins(20, 0, 10, 0)
         layout.setSpacing(5)
 
-        header_title = QLabel("🛡️ Security Shield X")
+        header_title = QLabel("🛡️ Security Shield")
         header_title.setStyleSheet("""
             QLabel {
                 color: #a0a0b0;
@@ -334,7 +320,6 @@ class HeaderPanel(QWidget):
             self.parent.move(event.globalPosition().toPoint() - self._drag_position)
             event.accept()
 
-
 class ThreatDialog(QDialog):
     def __init__(self, threat_info, parent=None):
         super().__init__(parent)
@@ -359,10 +344,6 @@ class ThreatDialog(QDialog):
             if "(" in self.threat_info:
                 process_part = self.threat_info.split("(")[0].strip()
                 self.process_name = process_part
-            elif "процесс:" in self.threat_info.lower():
-                proc_start = self.threat_info.lower().find("процесс:")
-                if proc_start != -1:
-                    self.process_name = self.threat_info[proc_start + 8:].split("(")[0].strip()
 
             if self.process_pid and self.process_pid.isdigit():
                 try:
@@ -370,7 +351,6 @@ class ThreatDialog(QDialog):
                     self.process_path = proc.exe()
                 except:
                     pass
-
         except:
             pass
 
@@ -577,7 +557,6 @@ class ThreatDialog(QDialog):
 
         self.reject()
 
-
 class ExclusionsPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -604,8 +583,7 @@ class ExclusionsPage(QWidget):
         """)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        info_text = QLabel(
-            "Здесь отображаются процессы, добавленные в исключения.\nСистема не будет проверять эти процессы на угрозы.")
+        info_text = QLabel("Здесь отображаются процессы, добавленные в исключения.\nСистема не будет проверять эти процессы на угрозы.")
         info_text.setStyleSheet("""
             QLabel {
                 color: #a0a0b0;
@@ -780,7 +758,6 @@ class ExclusionsPage(QWidget):
         count = len(self.exclusions_set)
         self.stats_label.setText(f"Исключений: {count}")
 
-
 class MainPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -900,7 +877,6 @@ class MainPage(QWidget):
 
         self.setLayout(page_layout)
 
-
 class NavigationPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -978,7 +954,7 @@ class NavigationPanel(QWidget):
         layout.addWidget(self.exclusions_page_btn)
         layout.addStretch(1)
 
-        info_label = QLabel("Security Shield X PreALPHA")
+        info_label = QLabel("Security Shield v2.0N")
         info_label.setStyleSheet("""
             QLabel {
                 color: rgba(140, 150, 170, 0.8);
@@ -1001,7 +977,6 @@ class NavigationPanel(QWidget):
             }
         """)
 
-
 class ContentArea(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1023,7 +998,6 @@ class ContentArea(QWidget):
 
         layout.addWidget(self.stacked_widget)
         self.setLayout(layout)
-
 
 class SimpleSecurityApp(QMainWindow):
     def __init__(self):
@@ -1062,7 +1036,7 @@ class SimpleSecurityApp(QMainWindow):
             pass
 
     def initUI(self):
-        self.setWindowTitle('Security Shield X')
+        self.setWindowTitle('Security Shield')
         self.setFixedSize(*MAIN_WINDOW_SIZE)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -1121,13 +1095,13 @@ class SimpleSecurityApp(QMainWindow):
     def perform_startup_scan(self):
         processes = self.scanner.scan_running_processes()
         startup_items = self.scanner.scan_startup_items()
-
+        
         for proc in processes:
             if proc['status'] == 'MALICIOUS':
                 threat_info = f"{proc['name']} (PID: {proc['pid']}) - Обнаружен вредоносный процесс"
                 self.show_threat_alert_external(threat_info)
                 break
-
+        
         for item in startup_items:
             if item['status'] == 'MALICIOUS':
                 threat_info = f"Вредоносный файл в автозагрузке: {os.path.basename(item['path'])}"
@@ -1285,7 +1259,7 @@ class SimpleSecurityApp(QMainWindow):
 
     def check_for_threats(self):
         processes = self.scanner.scan_running_processes()
-
+        
         for proc in processes:
             if proc['status'] == 'MALICIOUS':
                 threat_id = f"{proc['pid']}_{proc['name']}"
@@ -1313,7 +1287,6 @@ class SimpleSecurityApp(QMainWindow):
     def show_threat_alert(self, threat_info):
         self.show_threat_alert_external(threat_info)
 
-
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
@@ -1337,7 +1310,6 @@ def main():
     window = SimpleSecurityApp()
     window.show()
     sys.exit(app.exec())
-
 
 if __name__ == '__main__':
     main()
